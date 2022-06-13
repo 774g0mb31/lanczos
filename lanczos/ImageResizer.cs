@@ -60,7 +60,7 @@ class ImageResizer
 
         for (int y = 1; y < kernelSize * 2; y++)
         {
-            for (int x = 1; x <= kernelSize * 2; x++)
+            for (int x = 1; x < kernelSize * 2; x++)
             {
                 int sampleX = (int) Math.Round(srcX) - kernelSize + x;
                 int sampleY = (int) Math.Round(srcY) - kernelSize + y;
