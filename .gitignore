@@ -1,0 +1,5 @@
+lanczos/bin
+lanczos/obj
+lanczos/.vs/
+*.csproj.user
+*.DS_Store
