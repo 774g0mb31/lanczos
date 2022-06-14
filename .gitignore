@@ -1,5 +1,6 @@
 lanczos/bin
 lanczos/obj
 lanczos/.vs/
+./vs
 *.csproj.user
 *.DS_Store

@@ -6,55 +6,55 @@ class ImageResizer
     static void Main(String[] args)
     {
         var fileName = args[0];
-        int dstWidth = Int32.Parse(args[1]);
-        int dstHeight = Int32.Parse(args[2]);
+        int targetWidth = Int32.Parse(args[1]);
+        int targetHeight = Int32.Parse(args[2]);
         int kernelSize = args.Length < 4 ? 3 : Int32.Parse(args[3]);
 
         var image = SKImage.FromEncodedData(fileName);
-        var srcBmp = SKBitmap.FromImage(image);
+        var sourceBitmap = SKBitmap.FromImage(image);
 
         ImageResizer resizer = new ImageResizer();
-        SKBitmap dstBmp = resizer.resize(srcBmp, dstWidth, dstHeight, kernelSize);
+        SKBitmap targetBitmap = resizer.Resize(sourceBitmap, targetWidth, targetHeight, kernelSize);
 
         using (SKFileWStream stream = new SKFileWStream("resized_" + fileName))
         {
-            dstBmp.Encode(stream, SKEncodedImageFormat.Png, 1);
+            targetBitmap.Encode(stream, SKEncodedImageFormat.Png, 1);
         }
     }
 
-    public SKBitmap resize(SKBitmap srcBmp, int dstWidth, int dstHeight, int kernelSize)
+    public SKBitmap Resize(SKBitmap sourceBitmap, int targetWidth, int targetHeight, int kernelSize)
     {
-        var dstBmp = new SKBitmap(dstWidth, dstHeight, srcBmp.Info.ColorType, SKAlphaType.Opaque);
-        var dstArray = dstBmp.Bytes;
+        var targetBitmap = new SKBitmap(targetWidth, targetHeight, sourceBitmap.Info.ColorType, SKAlphaType.Opaque);
+        var dstArray = targetBitmap.Bytes;
 
         GCHandle pinnedArray = GCHandle.Alloc(dstArray, GCHandleType.Pinned);
         IntPtr pinnedArrayPtr = pinnedArray.AddrOfPinnedObject();
 
-        Parallel.ForEach(Enumerable.Range(0, dstHeight).ToList(), y =>
+        Parallel.ForEach(Enumerable.Range(0, targetHeight).ToList(), y =>
         {
-            Parallel.ForEach(Enumerable.Range(0, dstWidth).ToList(), x =>
+            Parallel.ForEach(Enumerable.Range(0, targetWidth).ToList(), x =>
             {
-                setTargetPixel(x, y, dstWidth, dstHeight, srcBmp, dstArray, kernelSize);
+                SetTargetPixel(x, y, targetWidth, targetHeight, sourceBitmap, dstArray, kernelSize);
             });
         });
 
-        dstBmp.SetPixels(pinnedArrayPtr);
+        targetBitmap.SetPixels(pinnedArrayPtr);
         pinnedArray.Free();
 
-        return dstBmp;
+        return targetBitmap;
     }
 
-    private void setTargetPixel(int distX, int distY, int dstWidth, int dstHeight, SKBitmap srcBmp, byte[] dstArray, int kernelSize)
+    private void SetTargetPixel(int targetX, int targetY, int targetWidth, int targetHeight, SKBitmap sourceBitmap, byte[] targetArray, int kernelSize)
     {
-        byte[] srcArray = srcBmp.Bytes;
-        var srcWidth = srcBmp.Width;
-        var srcHeight = srcBmp.Height;
+        byte[] sourceArray = sourceBitmap.Bytes;
+        var sourceWidth = sourceBitmap.Width;
+        var sourceHeight = sourceBitmap.Height;
 
-        double widthFactor = (double) srcWidth / dstWidth;
-        double heightFactor = (double) srcHeight / dstHeight;
+        double widthFactor = (double) sourceWidth / targetWidth;
+        double heightFactor = (double) sourceHeight / targetHeight;
 
-        var srcX = distX * widthFactor;
-        var srcY = distY * heightFactor;
+        var sourceX = targetX * widthFactor;
+        var sourceY = targetY * heightFactor;
 
         double r = .0, g = .0, b = .0;
 
@@ -62,47 +62,47 @@ class ImageResizer
         {
             for (int x = 1; x < kernelSize * 2; x++)
             {
-                int sampleX = (int) Math.Round(srcX) - kernelSize + x;
-                int sampleY = (int) Math.Round(srcY) - kernelSize + y;
+                int sampleX = (int) Math.Round(sourceX) - kernelSize + x;
+                int sampleY = (int) Math.Round(sourceY) - kernelSize + y;
 
-                var weight = getLanczosWeight(srcX - sampleX, kernelSize) * getLanczosWeight(srcY - sampleY, kernelSize);
+                var weight = GetLanczosWeight(sourceX - sampleX, kernelSize) * GetLanczosWeight(sourceY - sampleY, kernelSize);
 
-                if (weight == 0 || sampleX < 0 || sampleX >= srcWidth || sampleY < 0 || sampleY >= srcHeight)
+                if (weight == 0 || sampleX < 0 || sampleX >= sourceWidth || sampleY < 0 || sampleY >= sourceHeight)
                 {
                     continue;
                 }
 
-                var sampleIdx = getPixelIndex(sampleX, sampleY, srcWidth);
+                var sampleIndex = GetPixelIndex(sampleX, sampleY, sourceWidth);
 
-                b += srcArray[sampleIdx + 0] * weight;
-                g += srcArray[sampleIdx + 1] * weight;
-                r += srcArray[sampleIdx + 2] * weight;
+                b += sourceArray[sampleIndex + 0] * weight;
+                g += sourceArray[sampleIndex + 1] * weight;
+                r += sourceArray[sampleIndex + 2] * weight;
             }
         }
 
-        var distIdx = getPixelIndex(distX, distY, dstWidth);
+        var targetIndex = GetPixelIndex(targetX, targetY, targetWidth);
 
-        dstArray[distIdx + 0] = getColorByte(b);
-        dstArray[distIdx + 1] = getColorByte(g);
-        dstArray[distIdx + 2] = getColorByte(r);
+        targetArray[targetIndex + 0] = GetColorByte(b);
+        targetArray[targetIndex + 1] = GetColorByte(g);
+        targetArray[targetIndex + 2] = GetColorByte(r);
     }
 
-    private double sinc(double x)
+    private double Sinc(double x)
     {
         return Math.Sin(x * Math.PI) / (x * Math.PI);
     }
 
-    private double getLanczosWeight(double x, int kernelSize)
+    private double GetLanczosWeight(double x, int kernelSize)
     {
-        return x == 0 ? 1 : Math.Abs(x) < kernelSize ? sinc(x) * sinc(x / kernelSize) : 0;
+        return x == 0 ? 1 : Math.Abs(x) < kernelSize ? Sinc(x) * Sinc(x / kernelSize) : 0;
     }
 
-    private byte getColorByte(double x)
+    private byte GetColorByte(double x)
     {
         return (byte) Math.Min(Math.Max(0, Math.Round(x)), 255);
     }
 
-    private int getPixelIndex(int x, int y , int stride)
+    private int GetPixelIndex(int x, int y , int stride)
     {
         return 4 * (x + stride * y);
     }
